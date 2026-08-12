@@ -31,7 +31,7 @@ def save_checkpoint(state, filename):
 def load_checkpoint(model, optimizer, filename, map_location, logger=None):
     if os.path.isfile(filename):
         logger.info("==> Loading from checkpoint '{}'".format(filename))
-        checkpoint = torch.load(filename, map_location)
+        checkpoint = torch.load(filename, map_location, weights_only=False)
         epoch = checkpoint.get('epoch', -1)
         best_result = checkpoint.get('best_result', 0.0)
         best_epoch = checkpoint.get('best_epoch', 0.0)
