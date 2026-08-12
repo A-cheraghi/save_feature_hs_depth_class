@@ -19,8 +19,8 @@ def decode_detections(dets, info, calibs, cls_mean_size, threshold):
         for j in range(dets.shape[1]):  # max_dets
             cls_id = int(dets[i, j, 0])
             score = dets[i, j, 1]
-            if score < threshold:
-                continue
+            # if score < threshold:
+            #     continue
 
             # 2d bboxs decoding
             x = dets[i, j, 2] * info['img_size'][i][0]
@@ -48,7 +48,7 @@ def decode_detections(dets, info, calibs, cls_mean_size, threshold):
             ry = calibs[i].alpha2ry(alpha, x)
 
 
-            score = score * dets[i, j, -1]
+            # score = score * dets[i, j, -1]
             preds.append([cls_id, alpha] + bbox + dimensions.tolist() + locations.tolist() + [ry, score])
         results[info['img_id'][i]] = preds
     return results
