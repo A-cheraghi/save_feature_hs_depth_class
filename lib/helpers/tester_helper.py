@@ -158,12 +158,19 @@ class Tester(object):
         if isinstance(img_ids, torch.Tensor):
             img_ids = img_ids.detach().cpu().tolist()
 
+        # sort query results by max class score so all query-related tensors stay aligned
+        out_logits = outputs['pred_logits']
+        prob = out_logits.sigmoid()
+        query_scores, _ = prob.max(dim=2)
+        sort_order = torch.argsort(query_scores, dim=1, descending=True)
+
         batch_size = outputs['pred_hs'].shape[0]
         for idx in range(batch_size):
+            order = sort_order[idx]
             data = {
-                'pred_hs': outputs['pred_hs'][idx].detach().cpu(),
-                'pred_depth': outputs['pred_depth'][idx].detach().cpu(),
-                'pred_logits': outputs['pred_logits'][idx].detach().cpu(),
+                'pred_hs': outputs['pred_hs'][idx][order].detach().cpu(),
+                'pred_depth': outputs['pred_depth'][idx][order].detach().cpu(),
+                'pred_logits': outputs['pred_logits'][idx][order].detach().cpu(),
             }
 
             if self.feature_save_mode == 'single_file':
