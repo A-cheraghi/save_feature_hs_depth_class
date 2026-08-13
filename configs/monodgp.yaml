@@ -122,6 +122,6 @@ tester:
   threshold: 0.2  # confidence filter
   topk: 50
   save_features: true  # save hs[-1], depth, and class logits during inference
-  feature_format: 'npz'  # 'pt' or 'npz'
-  feature_save_mode: 'per_image'  # 'per_image' or 'single_file'
+  # feature_format: 'npz'  # 'pt' or 'npz'
+  # feature_save_mode: 'per_image'  # 'per_image' or 'single_file'
   feature_output_dir: 'features'
