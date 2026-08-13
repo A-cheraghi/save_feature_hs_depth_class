@@ -24,12 +24,8 @@ class Tester(object):
         self.train_cfg = train_cfg
         self.model_name = model_name
 
-        # feature saving configuration for inference
-        self.save_features = cfg.get('save_features', False)
-        self.feature_format = cfg.get('feature_format', 'pt')
-        self.feature_save_mode = cfg.get('feature_save_mode', 'per_image')
-        self.feature_output_dir = os.path.join(self.output_dir, cfg.get('feature_output_dir', 'features'))
-        self.feature_buffer = {'img_ids': [], 'pred_hs': [], 'pred_depth': [], 'pred_logits': []} if self.save_features and self.feature_save_mode == 'single_file' else None
+        self.save_features = cfg.get('save_features', True)
+        self.feature_output_dir = os.path.join(self.output_dir, 'features')
 
     def test(self):
         assert self.cfg['mode'] in ['single', 'all']
@@ -48,7 +44,7 @@ class Tester(object):
                             logger=self.logger)
             self.model.to(self.device)
             self.inference()
-            # self.threshold()
+            self.evaluate()
 
         # test all checkpoints in the given dir
         elif self.cfg['mode'] == 'all' and self.train_cfg["save_all"]:
@@ -118,8 +114,6 @@ class Tester(object):
         # save the result for evaluation.
         self.logger.info('==> Saving ...')
         self.save_results(results)
-        if self.save_features and self.feature_save_mode == 'single_file':
-            self.save_features_file()
 
     def save_results(self, results):
         output_dir = os.path.join(self.output_dir, 'outputs', 'data')
@@ -158,50 +152,12 @@ class Tester(object):
         if isinstance(img_ids, torch.Tensor):
             img_ids = img_ids.detach().cpu().tolist()
 
-        # sort query results by max class score so all query-related tensors stay aligned
-        out_logits = outputs['pred_logits']
-        prob = out_logits.sigmoid()
-        query_scores, _ = prob.max(dim=2)
-        sort_order = torch.argsort(query_scores, dim=1, descending=True)
-
         batch_size = outputs['pred_hs'].shape[0]
         for idx in range(batch_size):
-            order = sort_order[idx]
-            data = {
-                'pred_hs': outputs['pred_hs'][idx][order].detach().cpu(),
-                'pred_depth': outputs['pred_depth'][idx][order].detach().cpu(),
-                'pred_logits': outputs['pred_logits'][idx][order].detach().cpu(),
-            }
-
-            if self.feature_save_mode == 'single_file':
-                self.feature_buffer['img_ids'].append(int(img_ids[idx]))
-                self.feature_buffer['pred_hs'].append(data['pred_hs'].numpy())
-                self.feature_buffer['pred_depth'].append(data['pred_depth'].numpy())
-                self.feature_buffer['pred_logits'].append(data['pred_logits'].numpy())
-                continue
-
-            filename = '{:06d}.{}'.format(int(img_ids[idx]), 'pt' if self.feature_format == 'pt' else 'npz')
-            output_path = os.path.join(self.feature_output_dir, filename)
-            if self.feature_format == 'npz':
-                np.savez_compressed(output_path,
-                                    pred_hs=data['pred_hs'].numpy(),
-                                    pred_depth=data['pred_depth'].numpy(),
-                                    pred_logits=data['pred_logits'].numpy())
-            else:
-                torch.save(data, output_path)
-
-    def save_features_file(self):
-        if not self.save_features or self.feature_save_mode != 'single_file':
-            return
-
-        os.makedirs(self.feature_output_dir, exist_ok=True)
-        output_path = os.path.join(self.feature_output_dir, 'features.{}'.format('pt' if self.feature_format == 'pt' else 'npz'))
-
-        if self.feature_format == 'npz':
-            np.savez_compressed(output_path,
-                                img_ids=np.array(self.feature_buffer['img_ids'], dtype=np.int32),
-                                pred_hs=np.stack(self.feature_buffer['pred_hs'], axis=0),
-                                pred_depth=np.stack(self.feature_buffer['pred_depth'], axis=0),
-                                pred_logits=np.stack(self.feature_buffer['pred_logits'], axis=0))
-        else:
-            torch.save(self.feature_buffer, output_path)
+            output_path = os.path.join(self.feature_output_dir, '{:06d}.npz'.format(int(img_ids[idx])))
+            np.savez_compressed(
+                output_path,
+                pred_hs=outputs['pred_hs'][idx].detach().cpu().numpy(),
+                pred_depth=outputs['pred_depth'][idx].detach().cpu().numpy(),
+                pred_logits=outputs['pred_logits'][idx].detach().cpu().numpy(),
+            )
