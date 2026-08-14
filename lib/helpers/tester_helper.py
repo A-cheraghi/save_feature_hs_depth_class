@@ -169,7 +169,7 @@ class Tester(object):
             sorted_logits = outputs['pred_logits'][idx][sorted_indices]
             
             # 4. Save
-            output_path = os.path.join(self.feature_output_dir, '{:06d}.npz'.format(int(img_ids[idx])))
+            output_path = os.path.join(self.feature_output_dir, '{:04d}.npz'.format(int(img_ids[idx])))
             np.savez_compressed(
                 output_path,
                 pred_hs=sorted_hs.detach().cpu().numpy(),
