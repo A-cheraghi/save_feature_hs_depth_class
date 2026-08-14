@@ -224,9 +224,45 @@ def d3_box_overlap_kernel(boxes, qboxes, rinc, criterion=-1):
 
 
 def d3_box_overlap(boxes, qboxes, criterion=-1):
+    # BEV intersection area (not IoU) returned by rotate_iou when criterion=2
     rinc = rotate_iou_gpu_eval(boxes[:, [0, 2, 3, 5, 6]],
                                qboxes[:, [0, 2, 3, 5, 6]], 2)
+    # quick debug info about BEV return
+    try:
+        print("DEBUG: d3_box_overlap - rinc.shape:", rinc.shape)
+        if rinc.size > 0:
+            print("DEBUG: d3_box_overlap - rinc min/max/mean:", rinc.min(), rinc.max(), float(rinc.mean()))
+    except Exception:
+        pass
+
+    # compute full 3D IoU in-place via kernel
     d3_box_overlap_kernel(boxes, qboxes, rinc, criterion)
+
+    # Post-kernel debug: recompute intermediates on host for suspicious pairs
+    try:
+        N, K = boxes.shape[0], qboxes.shape[0]
+        bev = rotate_iou_gpu_eval(boxes[:, [0, 2, 3, 5, 6]], qboxes[:, [0, 2, 3, 5, 6]], 2)
+        for ii in range(min(N, 50)):
+            for jj in range(min(K, 50)):
+                rbev = bev[ii, jj]
+                if rbev <= 0:
+                    continue
+                # vertical overlap as used in kernel
+                iw = (min(boxes[ii, 1], qboxes[jj, 1]) - max(
+                    boxes[ii, 1] - boxes[ii, 4], qboxes[jj, 1] - qboxes[jj, 4]))
+                if iw <= 0:
+                    continue
+                area1 = boxes[ii, 3] * boxes[ii, 4] * boxes[ii, 5]
+                area2 = qboxes[jj, 3] * qboxes[jj, 4] * qboxes[jj, 5]
+                inc = iw * rbev
+                ua = area1 + area2 - inc
+                ratio = inc / ua if ua != 0 else float('inf')
+                # report suspicious ratios (>0.99) or any >1
+                if ratio > 0.99:
+                    print(f"DEBUG_PAIR ii={ii} jj={jj} iw={iw:.6f} rbev={rbev:.6f} inc={inc:.6f} area1={area1:.6f} area2={area2:.6f} ua={ua:.6f} ratio={ratio:.6f}")
+    except Exception:
+        pass
+
     return rinc
 
 
