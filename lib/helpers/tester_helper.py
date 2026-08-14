@@ -155,10 +155,24 @@ class Tester(object):
 
         batch_size = outputs['pred_hs'].shape[0]
         for idx in range(batch_size):
+            # 1. Get logits and apply sigmoid
+            logits = outputs['pred_logits'][idx]  # shape: (num_queries, num_classes)
+            probs = torch.sigmoid(logits)
+            
+            # 2. Get car probabilities (class index 1) and sort descending
+            car_probs = probs[:, 1]  # index 1 is car
+            sorted_indices = torch.argsort(car_probs, descending=True)
+            
+            # 3. Apply sorting to all tensors consistently
+            sorted_hs = outputs['pred_hs'][idx][sorted_indices]
+            sorted_depth = outputs['pred_depth'][idx][sorted_indices]
+            sorted_logits = outputs['pred_logits'][idx][sorted_indices]
+            
+            # 4. Save
             output_path = os.path.join(self.feature_output_dir, '{:06d}.npz'.format(int(img_ids[idx])))
             np.savez_compressed(
                 output_path,
-                pred_hs=outputs['pred_hs'][idx].detach().cpu().numpy(),
-                pred_depth=outputs['pred_depth'][idx].detach().cpu().numpy(),
-                pred_logits=outputs['pred_logits'][idx].detach().cpu().numpy(),
+                pred_hs=sorted_hs.detach().cpu().numpy(),
+                pred_depth=sorted_depth.detach().cpu().numpy(),
+                pred_logits=sorted_logits.detach().cpu().numpy(),
             )
