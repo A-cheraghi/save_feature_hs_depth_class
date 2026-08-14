@@ -134,7 +134,7 @@ class Tester(object):
                 f.write('{} 0.0 0'.format(class_name))
                 for j in range(1, len(results[img_id][i]) - 1):
                     f.write(' {:.2f}'.format(results[img_id][i][j]))
-                f.write(' {:.8f}'.format(results[img_id][i][-1]))
+                f.write(' {:.4f}'.format(results[img_id][i][-1]))
                 f.write('\n')
             f.close()
 
